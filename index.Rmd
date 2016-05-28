@@ -7,7 +7,7 @@ output: html_document
 
 ## Synopsis
 
-The purpose of this assignment is to look at producing a machine learning model which can resonably predict the manner in which a a set of test subjects peform a suite of exercises.
+The purpose of this assignment is to look at producing a machine learning model which can resonably predict the manner in which a set of test subjects peform a suite of exercises.
 
 The model will use data from accelerometers on the belt, forearm, arm, and dumbell of the test subjects worn during exercise. This data will be used to predict the specification class as defined below:
 
@@ -32,11 +32,11 @@ The model is to use data from accelerometers on the belt, forearm, arm, and dumb
 ```{r ref.label="getAllPoissblePredictors",echo=FALSE,warning=FALSE,message=FALSE}
 ```
 
-Now I have the required columns I'm going to how much data is available in those columns
+Now I have the required columns I'm going to see how much data is available in those columns
 ```{r ref.label="percentageOfNAsInTraining",echo=FALSE,warning=FALSE,message=FALSE}
 ```
 
-As you can see var_total_accel_belt, var_accel_arm, var_accel_dumbbell and var_accel_forearm all have 97.9% of missing data (NA). The author has decided to remove these columns (predictos) from the subsequent models
+As you can see var_total_accel_belt, var_accel_arm, var_accel_dumbbell and var_accel_forearm all have 97.9% of missing data (NA). The author has decided to remove these columns (predictors) from the subsequent models
 
 ```{r ref.label="getAllPoissblePredictorsMinusVAR",echo=FALSE,warning=FALSE,message=FALSE}
 ```
@@ -60,7 +60,7 @@ The provided training data set will be split 60% for training and 40% for testin
 
 ### Predictor Analysis
 
-Now that I have training data set I will perform some analysis to understand the individual importance of the predictors I have selected:
+Now that I have a training data set I will perform some analysis to understand the individual importance of the predictors I have selected:
 ```{r ref.label="pcaAndRF",echo=FALSE,warning=FALSE,message=FALSE,cache=TRUE}
 ```
 
