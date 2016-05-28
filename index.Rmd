@@ -1,0 +1,304 @@
+---
+title: "Exercise 'Manner' Predictor"
+author: "Andy Pritchard"
+date: "21 May 2016"
+output: html_document
+---
+
+## Synopsis
+
+The purpose of this assignment is to look at producing a machine learning model which can resonably predict the manner in which a a set of test subjects peform a suite of exercises.
+
+The model will use data from accelerometers on the belt, forearm, arm, and dumbell of the test subjects worn during exercise. This data will be used to predict the specification class as defined below:
+
+Specifically (from http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises) "Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E)."
+
+The data for this project is kindly provided by: http://groupware.les.inf.puc-rio.br/har in conjunction with the Coursera Data Science Specialization
+
+```{r ref.label="setoptions",echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+```{r ref.label="loaddata",echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+## Exploratory Data Analysis
+
+I first explored the data to see if any of the columns have no data and could be filtered out as predictors
+```{r ref.label="checkForNAs",echo=FALSE,warning=FALSE,message=FALSE}
+```
+It is to be noted that based on the above that the testing data does have empty columns whereas the training set does not. To avoid overfitting the model this fact will be ignored; however it may skew the results in later modelling.
+
+The model is to use data from accelerometers on the belt, forearm, arm, and dumbell, so I will extract just those columns (predictors).
+```{r ref.label="getAllPoissblePredictors",echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+Now I have the required columns I'm going to how much data is available in those columns
+```{r ref.label="percentageOfNAsInTraining",echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+As you can see var_total_accel_belt, var_accel_arm, var_accel_dumbbell and var_accel_forearm all have 97.9% of missing data (NA). The author has decided to remove these columns (predictos) from the subsequent models
+
+```{r ref.label="getAllPoissblePredictorsMinusVAR",echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+Now I have the final set of predictors I'm going to look to see if there are any outliers in the data which could skew the model
+```{r ref.label="exploratoryPredictors",echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+As you can see accel_forearm_x, accel_forearm_y and accel_dumbbell_x have clear outliers and these will be removed by setting their values to the mean of of their respective columns, updated boxplot below:
+
+```{r ref.label="removeOutliers",echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+## Model Creation & Evaluation
+
+### Create Cross Validation
+
+The provided training data set will be split 60% for training and 40% for testing (model evaluation)
+```{r ref.label="createCrossValidation",echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+### Predictor Analysis
+
+Now that I have training data set I will perform some analysis to understand the individual importance of the predictors I have selected:
+```{r ref.label="pcaAndRF",echo=FALSE,warning=FALSE,message=FALSE,cache=TRUE}
+```
+
+As you can see the total_accel_arm column has shown not to be significant in relation to prediction and could be removed.
+
+### Model Selection
+
+I'm now going to determine which model is best at predicting the class of exercise. I'm going to evaluate 3 models: Random Forest (RF), Gradient Boosting Machine (GBM) and Latent Dirichlet Allocation (LDA) which gives a good spread of machine learning algorithms.
+```{r ref.label="rfModelEvaluate",echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+```{r ref.label="modelLDA",echo=FALSE,warning=FALSE,message=FALSE,cache=TRUE}
+```
+
+```{r ref.label="modelGBM",echo=FALSE,warning=FALSE,message=FALSE,cache=TRUE, results="hide"}
+```
+
+
+```{r ref.label="modelSummary",echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+## Results
+
+As you see the Random Forest algorithm is clearly best fitted to this particular problem domain and will be used on the (provided) 20 record test data set. My Random Forest model predicts the following for the 20 records:
+
+```{r ref.label="predictFor20records",echo=FALSE,warning=FALSE,message=FALSE}
+```
+
+
+## Appendix - R Code
+
+```{r setoptions, echo=TRUE, eval=FALSE}
+library(knitr)
+library(caret)
+library(randomForest)
+
+opts_chunk$set(echo = TRUE,warning=FALSE,message=FALSE)
+
+set.seed(1234)
+
+```
+
+### Loading and preprocessing the data
+
+```{r loaddata, cache=TRUE, eval=FALSE}  
+if (!file.exists("datadir"))
+{
+  dir.create("datadir")
+}
+  
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",
+              "./datadir/pml-training.csv",mode="wb")
+
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",
+              "./datadir/pml-testing.csv",mode="wb")
+
+#read in test and training sets
+pml_training <- read.csv("./datadir/pml-training.csv", sep = ",", stringsAsFactors = FALSE, header= TRUE)
+pml_20recordcsv <- read.csv("./datadir/pml-testing.csv", sep = ",", stringsAsFactors = FALSE, header= TRUE)
+
+```
+
+### Exploratory Data Analysis
+
+```{r checkForNAs, eval=FALSE}
+
+#any columns all NA?
+pml_training_NA <- unlist(lapply(pml_training, function(x) {   all(is.na(x))  }))
+pml_20recordcsv_NA <- unlist(lapply(pml_20recordcsv, function(x) {   all(is.na(x))  }))
+
+table(pml_training_NA)
+table(pml_20recordcsv_NA)
+
+```
+
+
+
+```{r getAllPoissblePredictors, eval=FALSE}
+#Find all the _dumbbell columns
+dumbColumns <- grep("accel_dumbbell",names(pml_training))
+
+#Find all the _arm COlumns
+armColumns <- grep("accel_arm",names(pml_training))
+
+#Find all the _forearm columns
+forearmColumns <- grep("accel_forearm",names(pml_training))
+
+#Find all the _belt columns
+beltColumns <- grep("accel_belt",names(pml_training))
+
+#Combine column (+classe 160) indexes and sort
+predictorsAndClasseTraining <- sort(c(dumbColumns,armColumns,forearmColumns,beltColumns,160))
+predictorsTesting20record <- sort(c(dumbColumns,armColumns,forearmColumns,beltColumns))
+
+#reduce dimensions to those of interest
+pml_training_subset <- pml_training[,predictorsAndClasseTraining]
+pml_20recordcsv_subset <- pml_20recordcsv[,predictorsTesting20record]
+  
+```
+
+```{r percentageOfNAsInTraining, eval=FALSE}
+#calculate the percentage of NA's in each column
+pml_training_subset_NApercent <- data.frame(sort(unlist(lapply(pml_training_subset, function(x) {   round(100/length(x)*sum(is.na(x)),1)  })),decreasing=TRUE))
+
+#update column heading
+names(pml_training_subset_NApercent) <- c("NA.percentage")
+
+#output data
+pml_training_subset_NApercent
+```
+
+```{r getAllPoissblePredictorsMinusVAR, eval=FALSE}
+#grep for columns starting with var_ and return the columns that don't match
+finalColumnSetTraining <- grep("var_",names(pml_training_subset),invert=TRUE)
+finalColumnSet20recordsTesting <- grep("var_",names(pml_20recordcsv_subset),invert=TRUE)
+
+#subset
+pml_training_subset_minusvar <- pml_training_subset[,finalColumnSetTraining]
+pml_20recordcsv_subset_minusvar <- pml_20recordcsv_subset[,finalColumnSet20recordsTesting]
+```
+
+```{r exploratoryPredictors, eval=FALSE}
+#boxplot predictors
+with(pml_training_subset_minusvar,boxplot(total_accel_belt,accel_belt_x,accel_belt_y,
+  accel_belt_z,total_accel_arm,accel_arm_x,accel_arm_y,accel_arm_z,total_accel_dumbbell,
+  accel_dumbbell_x,accel_dumbbell_y,accel_dumbbell_z,total_accel_forearm,accel_forearm_x,
+  accel_forearm_y,accel_forearm_z))
+
+#output legend
+predictorList <- c("total_accel_belt","accel_belt_x","accel_belt_y","accel_belt_z",
+      "total_accel_arm","accel_arm_x","accel_arm_y","accel_arm_z","total_accel_dumbbell",
+      "accel_dumbbell_x","accel_dumbbell_y","accel_dumbbell_z","total_accel_forearm",
+      "accel_forearm_x","accel_forearm_y","accel_forearm_z")
+
+predictorList
+```
+
+```{r removeOutliers, eval=FALSE}
+#remove accel_forearm_x outlier
+outlier <- pml_training_subset_minusvar$accel_forearm_x==max(pml_training_subset_minusvar$accel_forearm_x)
+pml_training_subset_minusvar[outlier,]$accel_forearm_x <- mean(pml_training_subset_minusvar$accel_forearm_x)
+
+#remove accel_forearm_y outlier
+outlier <- pml_training_subset_minusvar$accel_forearm_y==max(pml_training_subset_minusvar$accel_forearm_y)
+pml_training_subset_minusvar[outlier,]$accel_forearm_y <- mean(pml_training_subset_minusvar$accel_forearm_y)
+
+#remove accel_dumbbell_x outlier
+outlier <- pml_training_subset_minusvar$accel_dumbbell_x==min(pml_training_subset_minusvar$accel_dumbbell_x)
+pml_training_subset_minusvar[outlier,]$accel_dumbbell_x <- mean(pml_training_subset_minusvar$accel_dumbbell_x)
+
+#updated boxplot
+with(pml_training_subset_minusvar,boxplot(total_accel_belt,accel_belt_x,accel_belt_y,
+  accel_belt_z,total_accel_arm,accel_arm_x,accel_arm_y,accel_arm_z,total_accel_dumbbell,
+  accel_dumbbell_x,accel_dumbbell_y,accel_dumbbell_z,total_accel_forearm,accel_forearm_x,
+  accel_forearm_y,accel_forearm_z))
+
+```
+
+### Model Creation & Evaluation
+
+```{r createCrossValidation, eval=FALSE}
+#split training data into training and testing sets
+#note this is different to the testing set provided for validation of the assignment
+crossValidationSplit = createDataPartition(pml_training_subset_minusvar$classe, p = 0.60, list=FALSE)
+
+#subset
+pml_training_subset_minusvar_training = pml_training_subset_minusvar[crossValidationSplit,]
+pml_training_subset_minusvar_testing = pml_training_subset_minusvar[-crossValidationSplit,]
+
+```
+
+```{r pcaAndRF,cache=TRUE, eval=FALSE}
+#create a random Forest model to evaluate importance of specific predictors
+modelRF <- train(classe~.,method="rf",data=pml_training_subset_minusvar_training)
+
+#output results
+varImp(modelRF)
+plot(varImp(modelRF))
+```
+
+```{r rfModelEvaluate, eval=FALSE}
+#extract model accuracy
+rfInSample <- round(modelRF$results$Accuracy[1],3)
+
+#extract prediction accuracy
+rfTestPredict <- predict(modelRF,newdata=pml_training_subset_minusvar_testing) 
+rfTestCM <- confusionMatrix(rfTestPredict,pml_training_subset_minusvar_testing$classe)
+rfOutOfSample <- round(rfTestCM$overall[1],3)
+```
+
+```{r modelLDA,cache=TRUE, eval=FALSE}
+modelLDA <- train(classe~.,method="lda",data=pml_training_subset_minusvar_training)
+
+#extract model accuracy
+ldaInSample <- round(modelLDA$results$Accuracy[1],3)
+
+#extract prediction accuracy
+ldaTestPredict <- predict(modelLDA,newdata=pml_training_subset_minusvar_testing) 
+ldaTestCM <- confusionMatrix(ldaTestPredict,pml_training_subset_minusvar_testing$classe)
+ldaOutOfSample <- round(ldaTestCM$overall[1],3)
+```
+
+```{r modelGBM,cache=TRUE, eval=FALSE, results="hide"}
+modelGBM <- train(classe~.,method="gbm",data=pml_training_subset_minusvar_training)
+
+#extract model accuracy
+gbmInSample <- round(modelGBM$results$Accuracy[1],3)
+
+#extract prediction accuracy
+gbmTestPredict <- predict(modelGBM,newdata=pml_training_subset_minusvar_testing) 
+gbmTestCM <- confusionMatrix(gbmTestPredict,pml_training_subset_minusvar_testing$classe)
+gbmOutOfSample <- round(gbmTestCM$overall[1],3)
+```
+
+### Model Summary
+
+```{r modelSummary, eval=FALSE}
+#create data frame with all model results
+modelSummaryDF <- data.frame(c("Random Forest (RF)",
+                               "Gradient Boosting Machine (GBM)",
+                               "Latent Dirichlet Allocation (LDA)"), 
+                              c(100-(rfInSample*100),100-(ldaInSample*100),100-(gbmInSample*100)),
+                              c(100-(rfOutOfSample*100),100-(ldaOutOfSample*100),100-(gbmOutOfSample*100)))
+                             
+#update headings
+names(modelSummaryDF) <- c("Algorithm","In sample error%","Out of sample error%")
+
+#output
+kable(modelSummaryDF)
+```
+
+### Results
+
+```{r predictFor20records, eval=FALSE}
+#predict using selected RF model on provided 20 record test dataset
+rfTestPredict20records <- predict(modelRF,newdata=pml_20recordcsv_subset_minusvar)
+rfTestPredict20records
+```
+
+
+End of report
